@@ -15,7 +15,6 @@ class AMWallViewController: ASViewController<ASCollectionNode> {
     
     private var disposeBag: DisposeBag! = DisposeBag()
     private var viewModel: AMWallViewModel!
-    private var sections: [[AMWallPost]] = []
     
     convenience init() {
         let layout = UICollectionViewFlowLayout()
@@ -29,27 +28,21 @@ class AMWallViewController: ASViewController<ASCollectionNode> {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        MBProgressHUD.showAdded(to: self.view, animated: true)
         self.viewModel = AMWallViewModel(api: AMVKAPI())
-        self.viewModel.wallPosts.subscribe(onNext: { (posts) in
-            self.sections.append(posts)
-            self.node.insertSections(IndexSet(arrayLiteral: self.sections.count - 1))
-            MBProgressHUD.hide(for: self.view, animated: true)
-        }).disposed(by: self.disposeBag)
     }
 }
 
 extension AMWallViewController: ASCollectionDataSource {
     func numberOfSections(in collectionNode: ASCollectionNode) -> Int {
-        return self.sections.count
+        return self.viewModel.sections.count
     }
     
     func collectionNode(_ collectionNode: ASCollectionNode, numberOfItemsInSection section: Int) -> Int {
-        return self.sections[section].count
+        return self.viewModel.sections[section].count
     }
     
     func collectionNode(_ collectionNode: ASCollectionNode, nodeBlockForItemAt indexPath: IndexPath) -> ASCellNodeBlock {
-        let post = self.sections[indexPath.section][indexPath.row]
+        let post = self.viewModel.sections[indexPath.section][indexPath.row]
         return {
             return AMWallPostCellNode(wallPost: post)
         }
@@ -59,9 +52,12 @@ extension AMWallViewController: ASCollectionDataSource {
 extension AMWallViewController: ASCollectionDelegate {
     func collectionNode(_ collectionNode: ASCollectionNode, willBeginBatchFetchWith context: ASBatchContext) {
         context.beginBatchFetching()
-        self.viewModel.wallPosts.take(1).subscribe(onNext: { (_) in
+        
+        self.viewModel.currentSection.take(1).subscribe(onNext: { (_) in
+            self.node.insertSections(IndexSet(arrayLiteral: self.viewModel.sections.count - 1))
             context.completeBatchFetching(true)
         }).disposed(by: self.disposeBag)
+        
         self.viewModel.currentOffset.onNext(collectionNode.numberOfSections * AMWallViewModel.pageSize)
     }
 }
